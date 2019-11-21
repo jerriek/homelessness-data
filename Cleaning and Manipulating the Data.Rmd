@@ -1,0 +1,167 @@
+---
+title: "Cleaning up the data"
+output:
+  html_notebook: default
+  pdf_document: default
+---
+
+Data was collected from the HUD Point-In-Time estimates of homelessness assessment reports for 2007 through 2017. 
+
+Data was compiled and queried within data.world and the data clean-up was conducted in R studio. The focus was on organizing the data in such a way that it would be easy to group by region, by state or by year. I also wanted to be able to combine data on the number of shelter beds available for homeless individuals per state with the number of homeless individuals per state. 
+
+SQL was used to pull data from the various sheets into one dataframe within R. The data was then organized, cleaned and joined to create one dataframe. 
+
+Dataframe clean-up included:
+* Removing blanks
+* Spelling out state names
+* Removing US territories that will not be used in analysis
+* Removing rows of data with totals 
+* Breaking down data according to regions
+* Combining data points from shelter beds dataframe and homeless population dataframe
+
+### Steps for Compiling and Cleaning up the Data 
+
+Libraries used
+```{r, echo =TRUE, results='hide'}
+library(data.world) #used to connect to data.world 
+library(dplyr) #to manipulate and transform the data
+```
+
+```{r, echo =TRUE, results='hide'}
+load(".RData")
+```
+To pull data.world you first have to configure the system so that R studio can directly communicate with data.world. Data.world provides each user with an API token which is used to integrate R with data.world
+```{r, echo =TRUE, results='hide'}
+saved_cfg <- save_config("eyJhbGciOiJIUzUxMiJ9.eyJzdWIiOiJyLWFuZC1yLXN0dWRpbzpqZXJyaWVrIiwiaXNzIjoiY2xpZW50OnItYW5kLXItc3R1ZGlvOmFnZW50OmplcnJpZWs6OmRlMDQyNGY2LTE3MTctNDg5MS1hNGYyLTYyNTNlOGNhZjEwNSIsImlhdCI6MTU0NzU3MjI3MSwicm9sZSI6WyJ1c2VyX2FwaV9hZG1pbiIsInVzZXJfYXBpX3JlYWQiLCJ1c2VyX2FwaV93cml0ZSJdLCJnZW5lcmFsLXB1cnBvc2UiOnRydWUsInNhbWwiOnt9fQ.GS4kECqsw6IModNmOyYKQf4M_GrOFDM7h9Aj0EGpFDw951en3lxzTnREKInjDnNA08-OMweNhH3LK3vqw6o3Dw")
+
+set_config(saved_cfg)
+```
+Load data from data.world library
+```{r, echo =TRUE, results='hide'}
+#link to where the data is housed in this case it is my profile but I could connect to any datasource on data.world
+data_link <- "https://data.world/jerriek/homelessness-in-the-us/"
+```
+Run a query pulling all homeless shelter beds using SQL and create data frame
+```{r, echo =TRUE, results='hide'}
+total_beds_query <- qry_sql("SELECT  '2007' AS Year, state, total_beds_es_th_total_year_round_beds_es_th
+                            FROM 2007
+                            UNION
+                            SELECT '2008',
+                            state, total_beds_es_th_sh_total_year_round_beds_es_th_sh
+                            FROM 2008 
+                            UNION
+                            SELECT '2009',
+                            state, total_beds_es_th_sh_total_year_round_beds_es_th_sh
+                            FROM 2009 
+                            UNION
+                            SELECT '2010',
+                            state, total_beds_es_th_sh_total_year_round_beds_es_th_sh
+                            FROM 2010 
+                            UNION
+                            SELECT '2011',
+                            state, total_beds_es_th_sh_total_year_round_beds_es_th_sh
+                            FROM 2011 
+                            UNION
+                            SELECT '2012',
+                            state, total_beds_es_th_sh_total_year_round_beds_es_th_sh
+                            FROM 2012 
+                            UNION
+                            SELECT '2013',
+                            state, total_beds_es_th_sh_total_year_round_beds_es_th_rrh_sh
+                            FROM 2013 
+                            UNION
+                            SELECT '2014',
+                            state, total_beds_es_th_sh_total_year_round_beds_es_th_sh
+                            FROM 2014 
+                            UNION
+                            SELECT '2015',
+                            state, total_beds_es_th_sh_total_year_round_beds_es_th_sh
+                            FROM 2015
+                            UNION
+                            SELECT '2016',
+                            state, total_beds_es_th_sh_total_year_round_beds_es_th_sh
+                            FROM 2016 
+                            UNION
+                            SELECT '2017',
+                            state, total_beds_es_th_sh_total_year_round_beds_es_th_sh
+                            FROM 2017" )
+
+
+#created dataframe using the query function 
+total_beds_df <- query(total_beds_query, dataset = data_link)
+
+#remove all columns with the totals
+total_beds_df <- total_beds_df[!total_beds_df$state == "Total", ]
+```
+Run a query pulling all homeless population data using SQL and create data frame
+```{r, echo =TRUE, results='hide'}
+total_homelessness_query <- qry_sql("SELECT '2007' AS Year, state, `2007_2`.number_of_cocs AS Number_Of_CoCs, `2007_2`.total_homeless_2007 AS Total_Homeless,  `2007_2`.sheltered_homeless_2007 AS Total_Sheltered_Homeless, `2007_2`.unsheltered_homeless_2007 AS Total_Unsheltered_Homeless
+FROM `2007_2`
+                                    UNION
+                                    SELECT '2008', state, `2008_2`.number_of_cocs, `2008_2`.total_homeless_2008, `2008_2`.sheltered_homeless_2008, `2008_2`.unsheltered_homeless_2008
+                                    FROM `2008_2`
+                                    UNION
+                                    SELECT '2009', state, `2009_2`.number_of_cocs, `2009_2`.total_homeless_2009, `2009_2`.sheltered_homeless_2009, `2009_2`.unsheltered_homeless_2009
+                                    FROM `2009_2`
+                                    UNION
+                                    SELECT '2010', state, `2010_2`.number_of_cocs, `2010_2`.total_homeless_2010, `2010_2`.sheltered_homeless_2010, `2010_2`.unsheltered_homeless_2010
+                                    FROM `2010_2`
+                                    UNION
+                                    SELECT '2011', state, `2011_2`.number_of_cocs, `2011_2`.total_homeless_2011, `2011_2`.sheltered_homeless_2011, `2011_2`.unsheltered_homeless_2011
+                                    FROM `2011_2`
+                                    UNION
+                                    SELECT '2012', state,`2012_2`.number_of_cocs, `2012_2`.total_homeless_2012, `2012_2`.sheltered_homeless_2012, `2012_2`.unsheltered_homeless_2012
+                                    FROM `2012_2`
+                                    UNION
+                                    SELECT '2013', state, `2013_2`.number_of_cocs, `2013_2`.total_homeless_2013, `2013_2`.sheltered_homeless_2013, `2013_2`.unsheltered_homeless_2013
+                                    FROM `2013_2`
+                                    UNION
+                                    SELECT '2014', state, `2014_2`.number_of_cocs, `2014_2`.total_homeless_2014, `2014_2`.sheltered_homeless_2014, `2014_2`.unsheltered_homeless_2014
+                                    FROM `2014_2`
+                                    UNION
+                                    SELECT '2015', state, `2015_2`.number_of_cocs, `2015_2`.total_homeless_2015, `2015_2`.sheltered_homeless_2015, `2015_2`.unsheltered_homeless_2015
+                                    FROM `2015_2`
+                                    UNION
+                                    SELECT '2016', state, `2016_2`.number_of_cocs, `2016_2`.total_homeless_2016, `2016_2`.sheltered_homeless_2016, `2016_2`.unsheltered_homeless_2016
+                                    FROM `2016_2`
+                                    UNION
+                                    SELECT '2017', state, `2017_2`.number_of_cocs, `2017_2`.total_homeless_2017, `2017_2`.sheltered_homeless_2017, `2017_2`.unsheltered_homeless_2017
+                                    FROM `2017_2`")
+
+total_homelessness_df <- query(total_homelessness_query, dataset = data_link)
+#quick clean-up
+total_homelessness_df <- total_homelessness_df[!total_homelessness_df$state == "Total", ]
+
+#remove all rows with no values (NAs)
+total_homelessness_df <- na.omit(total_homelessness_df)
+
+#Remove states that will not be used in analysis
+unique(total_beds_df$state) #Remove data with GU, PR, MP
+unique(total_homelessness_df$state) #Remove data for GU, PR, MP, NA and change KS* to KS
+
+states_remove <- c("GU", "PR", "MP", "NA", "VI")
+total_beds_df <- total_beds_df[!total_beds_df$state %in% states_remove, ]
+total_homelessness_df <- total_homelessness_df[!total_homelessness_df$state %in% states_remove,]
+```
+Join the data sets and make additional minor edits
+```{r, echo =TRUE, results='hide'}
+#Create a joined data frame of the two datasets
+joined_data <- left_join(total_beds_df, total_homelessness_df, by = c("Year","state"))
+
+#create a column with full state names
+joined_data$state_name <- state.name[match(joined_data$state, state.abb)]
+joined_data$region <- state.region[match(joined_data$state, state.abb)]
+
+#fill out DC data
+joined_data <- within(joined_data, state_name[state == "DC"] <- "District of Columbia")
+joined_data <- within(joined_data, region[state == "DC"] <- "South")
+
+#remove any NA's in joined data
+joined_data <- na.omit(joined_data)
+```
+Upload new joined dataset
+```{r, echo =TRUE, results='hide'}
+#upload data frame to data.world so that we can play with it in tableau or on data.world
+upload_data_frame(file_name = "Joined Data.csv", data_frame = joined_data, dataset = "jerriek/homelessness-in-the-us")
+```
+
